@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meubler mon appartement 🤩</title>
+  <meta name="theme-color" content="#0f172a">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">🏠</div>
+        <div>
+          <h1>Appartement</h1>
+          <p>Meubler mon appartement 🤩</p>
+        </div>
+      </div>
+
+      <section class="sideBox">
+        <div class="sideHead">
+          <strong>Taux de change</strong>
+          <span>EUR → CHF</span>
+        </div>
+        <input id="rate" type="number" step="0.0001" min="0">
+        <small>1 EUR = <b id="ratePreview">0.0000</b> CHF</small>
+      </section>
+
+      <section class="sideBox smallBox">
+        <div class="sideHead">
+          <strong>Savin'</strong>
+          <span>déduction</span>
+        </div>
+        <input id="savinRate" type="number" step="0.1" min="0">
+      </section>
+
+      <section class="sideBox smallBox">
+        <div class="sideHead">
+          <strong>TVA CH</strong>
+          <span>ajout</span>
+        </div>
+        <input id="vatRate" type="number" step="0.1" min="0">
+      </section>
+
+      <div class="themeBox">
+        <span>Thème</span>
+        <button id="themeToggle" title="Changer le thème">🌙</button>
+      </div>
+
+      <div class="sidebarFooter">
+        <span id="itemCount">0 achats</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <h2>Meubler mon appartement 🤩</h2>
+          <p>Une seule page pour ton plan d’épargne et tes dépenses.</p>
+        </div>
+        <div class="topActions">
+          <button id="exportCsv">⇧ Exporter CSV</button>
+          <button id="addSaving">+ Mois</button>
+          <button class="primary" id="addExpense">+ Ajouter un achat</button>
+        </div>
+      </header>
+
+      <section class="cards">
+        <article class="card">
+          <div class="cardIcon green">◈</div>
+          <span>Épargne prévue</span>
+          <strong id="savingTotal">0 CHF</strong>
+          <small>Total du plan</small>
+        </article>
+        <article class="card">
+          <div class="cardIcon blue">▤</div>
+          <span>Dépenses prévues</span>
+          <strong id="spentTotal">0 CHF</strong>
+          <small><b id="spentPercent">0%</b> de l’épargne</small>
+          <div class="miniProgress"><div id="progressFill"></div></div>
+        </article>
+        <article class="card highlight">
+          <div class="cardIcon orange">▢</div>
+          <span>Solde restant</span>
+          <strong id="remainingTotal">0 CHF</strong>
+          <small>Épargne - dépenses</small>
+        </article>
+        <article class="card">
+          <div class="cardIcon purple">⇄</div>
+          <span>Taux EUR → CHF</span>
+          <strong id="rateCard">0.0000</strong>
+          <small>Modifiable à gauche</small>
+        </article>
+      </section>
+
+      <section class="timelinePanel">
+        <div class="panelHeader">
+          <div>
+            <h3>Projection épargne</h3>
+            <p>Chaque mois combine l’épargne prévue et les dépenses associées.</p>
+          </div>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </section>
+
+      <section class="toolbar">
+        <div class="searchBox">
+          <input id="search" placeholder="Rechercher un achat...">
+          <span>⌕</span>
+        </div>
+        <select id="monthFilter">
+          <option value="all">Tous les mois</option>
+        </select>
+        <select id="currencyFilter">
+          <option value="all">Toutes devises</option>
+          <option value="CHF">CHF uniquement</option>
+          <option value="EUR">EUR uniquement</option>
+        </select>
+        <select id="sortBy">
+          <option value="date" selected>Trier par date</option>
+          <option value="entry">Ordre de saisie</option>
+          <option value="amountDesc">Montant décroissant</option>
+          <option value="amountAsc">Montant croissant</option>
+        </select>
+      </section>
+
+      <section class="tablePanel">
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Date</th>
+                <th>Achat</th>
+                <th>Mois</th>
+                <th>CHF</th>
+                <th>EUR</th>
+                <th>Coût net CHF</th>
+                <th>Solde après achat</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="expenseDialog">
+    <form method="dialog" class="modal">
+      <h2 id="expenseDialogTitle">Ajouter un achat</h2>
+      <label>Date
+        <input id="modalDate" type="date">
+      </label>
+      <label>Description
+        <input id="modalLabel" placeholder="Ex : Meuble TV">
+      </label>
+      <div class="grid2">
+        <label>Montant
+          <input id="modalAmount" type="number" step="0.01" min="0">
+        </label>
+        <label>Devise
+          <select id="modalCurrency">
+            <option value="CHF">CHF</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+      </div>
+      <label>Mois associé
+        <select id="modalMonth"></select>
+      </label>
+      <label class="checkLine">
+        <input id="modalStatus" type="checkbox">
+        <span>À définir</span>
+      </label>
+      <div class="euroDetails" id="euroDetails">
+        <div><span>Conversion</span><strong id="detailConverted">0 CHF</strong></div>
+        <div><span>Savin'</span><strong id="detailSavin">0 CHF</strong></div>
+        <div><span>TVA CH</span><strong id="detailVat">0 CHF</strong></div>
+        <div><span>Coût net</span><strong id="detailNet">0 CHF</strong></div>
+      </div>
+      <div class="modalActions">
+        <button value="cancel">Annuler</button>
+        <button class="primary" id="saveExpense" value="default">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="savingDialog">
+    <form method="dialog" class="modal">
+      <h2 id="savingDialogTitle">Ajouter un mois</h2>
+      <label>Mois
+        <input id="savingMonth" placeholder="Ex : novembre 2026">
+      </label>
+      <label>Date du mois
+        <input id="savingDate" type="date">
+      </label>
+      <label>Épargne prévue
+        <input id="savingAmount" type="number" step="0.01" min="0">
+      </label>
+      <label>Note
+        <input id="savingNote" placeholder="Optionnel">
+      </label>
+      <div class="modalActions">
+        <button value="cancel">Annuler</button>
+        <button class="primary" id="saveSaving" value="default">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
