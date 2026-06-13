@@ -448,8 +448,8 @@ function roundedCostCHF(expense){
   return cost ? Math.round(cost) : 0;
 }
 
-// Montant utilisé par le plan épargne Google Sheet.
-// Les montants EUR y sont repris comme valeur brute dans la colonne Dépenses du mois.
+// Montant utilisé par le Plan épargne du Google Sheet.
+// Le plan additionne les montants saisis bruts : CHF en CHF, EUR en valeur EUR brute.
 function planAmount(expense){
   return Number(expense.amount || 0);
 }
@@ -518,25 +518,34 @@ function render(){
 
 function renderTimeline(){
   let cumulativeSaving = 0;
-  let cumulativeSpent = 0;
+  let cumulativeExpenses = 0;
   const totalSaving = state.savings.reduce((s, m) => s + Number(m.planned || 0), 0);
   els.timeline.innerHTML = "";
+
   state.savings.forEach((s, index) => {
     cumulativeSaving += Number(s.planned || 0);
+
     const monthKey = normalizeMonth(s.month);
-    const monthSpent = state.expenses
+
+    // Identique au Google Sheet :
+    // dépenses du mois = somme brute des montants de ce mois.
+    // dépenses cumulées = somme des dépenses brutes depuis le début.
+    const monthExpenses = state.expenses
       .filter(e => normalizeMonth(e.month) === monthKey)
       .reduce((sum, e) => sum + planAmount(e), 0);
-    cumulativeSpent += monthSpent;
-    const remaining = cumulativeSaving - cumulativeSpent;
+
+    cumulativeExpenses += monthExpenses;
+
+    const remaining = cumulativeSaving - cumulativeExpenses;
     const width = totalSaving ? Math.min(100, cumulativeSaving / totalSaving * 100) : 0;
+
     const div = document.createElement("article");
     div.className = "monthCard";
     div.innerHTML = `
       <h4>${escapeHtml(s.month)}</h4>
       <div class="row"><span>Épargne</span><strong>${smartCHF(s.planned)}</strong></div>
-      <div class="row"><span>Dépenses du mois</span><strong>${smartCHF(monthSpent)}</strong></div>
-      <div class="row"><span>Solde cumulé</span><strong class="${remaining < 0 ? "negative" : "positive"}">${smartCHF(remaining)}</strong></div>
+      <div class="row"><span>Dépenses du mois</span><strong>${smartCHF(monthExpenses)}</strong></div>
+      <div class="row"><span>Solde cumulé</span><strong class="${remaining < 0 ? "negative" : "positive"}">${money(remaining)}</strong></div>
       <div class="bar"><div style="width:${width}%"></div></div>
       ${s.note ? `<div class="note">${escapeHtml(s.note)}</div>` : ""}
       <div class="monthActions">
@@ -553,7 +562,7 @@ function renderExpenses(){
   const allSorted = state.expenses.map((e, index) => ({...e, index})).sort((a,b) => dateValue(a.date) - dateValue(b.date));
   const runningByIndex = new Map();
   allSorted.forEach(e => {
-    runningSpent += roundedCostCHF(e);
+    runningSpent += planAmount(e);
     runningByIndex.set(e.index, savingsUntilDate(e.date) - runningSpent);
   });
 
@@ -624,7 +633,7 @@ function updateEuroDetails(){
   els.detailConverted.textContent = money(d.converted);
   els.detailSavin.textContent = money(d.savin);
   els.detailVat.textContent = money(d.vat);
-  els.detailNet.textContent = smartCHF(Math.round(d.net));
+  els.detailNet.textContent = money(d.net);
 }
 
 function openSavingModal(index = null){
@@ -695,7 +704,7 @@ els.exportCsv.addEventListener("click", () => {
   const allSorted = state.expenses.map((e, index) => ({...e, index})).sort((a,b) => dateValue(a.date) - dateValue(b.date));
   const lines = [header];
   allSorted.forEach(e => {
-    runningSpent += roundedCostCHF(e);
+    runningSpent += planAmount(e);
     const solde = savingsUntilDate(e.date) - runningSpent;
     lines.push([formatDate(e.date), e.label, e.month, e.currency === "CHF" ? e.amount : "", e.currency === "EUR" ? e.amount : "", e.currency === "EUR" ? roundedCostCHF(e) : "", solde.toFixed(2), e.status === "todo" ? "Oui" : ""]);
   });
