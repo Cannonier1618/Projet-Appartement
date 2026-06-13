@@ -1,0 +1,1 @@
+V5 : correction formules Google Sheet. Les cartes du plan épargne utilisent les montants bruts saisis pour les dépenses du mois et le solde cumulé. Les lignes détaillées EUR conservent le coût net CHF calculé et arrondi. Taux initial corrigé à 0.9192.

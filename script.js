@@ -1,5 +1,5 @@
 const INITIAL_DATA = {
-  "rate": 0.9206,
+  "rate": 0.9192,
   "savinRate": 14.5,
   "vatRate": 8.1,
   "savings": [
@@ -447,9 +447,15 @@ function roundedCostCHF(expense){
   const cost = costCHF(expense);
   return cost ? Math.round(cost) : 0;
 }
+
+// Montant utilisé par le plan épargne Google Sheet.
+// Les montants EUR y sont repris comme valeur brute dans la colonne Dépenses du mois.
+function planAmount(expense){
+  return Number(expense.amount || 0);
+}
 function totals(){
   const savingTotal = state.savings.reduce((sum, s) => sum + Number(s.planned || 0), 0);
-  const spentTotal = state.expenses.reduce((sum, e) => sum + roundedCostCHF(e), 0);
+  const spentTotal = state.expenses.reduce((sum, e) => sum + planAmount(e), 0);
   return {savingTotal, spentTotal, remaining: savingTotal - spentTotal};
 }
 function savingsUntilDate(date){
@@ -520,7 +526,7 @@ function renderTimeline(){
     const monthKey = normalizeMonth(s.month);
     const monthSpent = state.expenses
       .filter(e => normalizeMonth(e.month) === monthKey)
-      .reduce((sum, e) => sum + roundedCostCHF(e), 0);
+      .reduce((sum, e) => sum + planAmount(e), 0);
     cumulativeSpent += monthSpent;
     const remaining = cumulativeSaving - cumulativeSpent;
     const width = totalSaving ? Math.min(100, cumulativeSaving / totalSaving * 100) : 0;
@@ -618,7 +624,7 @@ function updateEuroDetails(){
   els.detailConverted.textContent = money(d.converted);
   els.detailSavin.textContent = money(d.savin);
   els.detailVat.textContent = money(d.vat);
-  els.detailNet.textContent = money(d.net);
+  els.detailNet.textContent = smartCHF(Math.round(d.net));
 }
 
 function openSavingModal(index = null){
