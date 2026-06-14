@@ -275,11 +275,12 @@ function migrateState(data){
     amount: e.amount === "" || e.amount == null ? "" : Number(e.amount),
     currency: e.currency === "EUR" || e.currency === "€" ? "EUR" : "CHF",
     month: normalizeMonth(e.month || ""),
-    status: e.status === "todo" ? "todo" : "",
+    status: String(e.status || ""),
     hidden: Boolean(e.hidden),
     position: Number(e.position ?? i),
     url: cleanUrl(e.url || e.link || ""),
-    note: e.note || e.notes || e.comment || e.commentaire || ""
+    note: e.note || e.notes || e.comment || e.commentaire || "",
+    done: Boolean(e.done || statusParts(e.status).includes("done"))
   }));
   return data;
 }
@@ -599,22 +600,39 @@ function roundedCostCHF(expense){
 
 // Montant utilisé par le Plan épargne du Google Sheet.
 // Le plan additionne les montants saisis bruts : CHF en CHF, EUR en valeur EUR brute.
+
+function statusParts(status){
+  return String(status || "").split("|").map(s => s.trim()).filter(Boolean);
+}
+
+function hasStatusFlag(expense, flag){
+  return statusParts(expense?.status).includes(flag);
+}
+
+function setStatusFlag(status, flag, enabled){
+  const parts = new Set(statusParts(status));
+  if (enabled) parts.add(flag);
+  else parts.delete(flag);
+  return Array.from(parts).join("|");
+}
+
+function isDone(expense){
+  return Boolean(expense?.done) || hasStatusFlag(expense, "done");
+}
+
+function isArchived(expense){
+  return hasStatusFlag(expense, "archived");
+}
+
 function isHidden(expense){
   return Boolean(expense.hidden);
 }
 
-function isDone(expense){
-  const status = String(expense?.status || "");
-  return Boolean(expense?.done) || status.split("|").includes("done");
-}
-
-
 function planAmount(expense){
-  if (isHidden(expense) || isDone(expense)) return 0;
+  if (isHidden(expense)) return 0;
 
-  // Montant réellement déduit des soldes :
-  // - CHF : montant CHF saisi
-  // - EUR : coût réel final CHF après SAVIN' + TVA QuickZoll
+  // Achat réalisé reste compté : c'est une dépense réelle.
+  // Masqué reste exclu : c'est une simulation.
   return roundedCostCHF(expense);
 }
 function totals(){
@@ -643,7 +661,7 @@ function getVisibleExpenses(){
   const q = els.search.value.trim().toLowerCase();
   const month = els.monthFilter.value;
   const currency = els.currencyFilter.value;
-  let items = state.expenses.map((expense, index) => ({...expense, index}));
+  let items = state.expenses.map((expense, index) => ({...expense, index})).filter(e => !isArchived(e));
   if (q) {
     items = items.filter(e => [e.date, e.label, e.amount, e.currency, e.month, roundedCostCHF(e)]
       .join(" ").toLowerCase().includes(q));
@@ -732,10 +750,11 @@ function renderExpenses(){
   els.rows.innerHTML = "";
   visible.forEach(e => {
     const cost = roundedCostCHF(e);
-    const active = e.status === "todo";
+    const active = hasStatusFlag(e, "todo");
     const convertedDisplay = e.currency === "EUR" && cost ? smartCHF(cost) : "";
     const tr = document.createElement("tr");
     if (isHidden(e)) tr.classList.add("hiddenExpense");
+    if (isDone(e)) tr.classList.add("doneExpense");
     tr.innerHTML = `
       <td class="statusCell">
         <button class="cornerMarker ${active ? "active" : ""}" data-type="expense" data-action="status" data-index="${e.index}" title="À définir" aria-label="À définir">
@@ -753,7 +772,7 @@ function renderExpenses(){
         <button class="iconBtn hideBtn ${isHidden(e) ? "active" : ""}" data-type="expense" data-action="toggleHidden" data-index="${e.index}" title="${isHidden(e) ? "Réintégrer dans les calculs" : "Masquer des calculs"}">${isHidden(e) ? "◉" : "○"}</button>
         ${e.note ? `<button class="iconBtn noteBtn" data-type="expense" data-action="showNote" data-index="${e.index}" title="Voir la note">✦</button>` : ""}
         ${e.url ? `<button class="iconBtn linkBtn" data-type="expense" data-action="openUrl" data-index="${e.index}" title="Ouvrir le lien">↗</button>` : ""}
-        ${`<button class="iconBtn doneBtn ${isDone(e) ? "active" : ""}" data-type="expense" data-action="toggleDone" data-index="${e.index}" title="${isDone(e) ? "Remettre en simulation" : "Marquer comme achat réalisé"}">${isDone(e) ? "✓" : "○"}</button>`}
+        <button class="iconBtn doneBtn ${isDone(e) ? "active" : ""}" data-type="expense" data-action="toggleDone" data-index="${e.index}" title="${isDone(e) ? "Marquer comme non réalisé" : "Achat réalisé"}">✓</button>
         <button class="iconBtn" data-type="expense" data-action="edit" data-index="${e.index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="expense" data-action="delete" data-index="${e.index}" title="Supprimer">×</button>
       </div></td>`;
@@ -777,7 +796,7 @@ function openExpenseModal(index = null){
   refreshSelects();
   els.modalMonth.value = normalizeMonth(e.month || state.savings[0]?.month || "");
   if (index === null) syncModalMonthFromDate();
-  els.modalStatus.checked = e.status === "todo";
+  els.modalStatus.checked = hasStatusFlag(e, "todo");
   updateEuroDetails();
   els.expenseDialog.showModal();
 }
@@ -792,7 +811,7 @@ function saveExpenseModal(){
     note: els.modalNote ? els.modalNote.value.trim() : "",
     currency: els.modalCurrency.value,
     month: normalizeMonth(els.modalMonth.value),
-    status: els.modalStatus.checked ? "todo" : "",
+    status: setStatusFlag("", "todo", els.modalStatus.checked),
     hidden: false
   };
 
@@ -803,6 +822,9 @@ function saveExpenseModal(){
   } else {
     item.id = state.expenses[editingExpenseIndex]?.id ?? null;
     item.hidden = Boolean(state.expenses[editingExpenseIndex]?.hidden);
+    item.status = setStatusFlag(item.status || "", "done", isDone(state.expenses[editingExpenseIndex]));
+    item.status = setStatusFlag(item.status || "", "archived", isArchived(state.expenses[editingExpenseIndex]));
+    item.done = isDone(state.expenses[editingExpenseIndex]);
     index = editingExpenseIndex;
     state.expenses[editingExpenseIndex] = item;
   }
@@ -885,7 +907,7 @@ document.addEventListener("click", event => {
   const index = Number(btn.dataset.index);
   if (btn.dataset.type === "expense") {
     if (btn.dataset.action === "status") {
-      state.expenses[index].status = state.expenses[index].status === "todo" ? "" : "todo";
+      state.expenses[index].status = setStatusFlag(state.expenses[index].status || "", "todo", !hasStatusFlag(state.expenses[index], "todo"));
       render();
       if (cloudReady) saveExpenseRow(index).catch(error => {
     console.error("Erreur sauvegarde achat Supabase:", error);
@@ -901,11 +923,14 @@ document.addEventListener("click", event => {
   });
     }
     if (btn.dataset.action === "toggleDone") {
-      state.expenses[index] = normalizeExpense(state.expenses[index]);
       const current = isDone(state.expenses[index]);
+      state.expenses[index].done = !current;
       state.expenses[index].status = setStatusFlag(state.expenses[index].status || "", "done", !current);
-      saveState();
       render();
+      if (cloudReady) saveExpenseRow(index).catch(error => {
+        console.error("Erreur sauvegarde achat réalisé Supabase:", error);
+        alert("La sauvegarde Supabase a échoué. Vérifie la colonne done dans apartment_expenses.");
+      });
     }
     if (btn.dataset.action === "showNote") {
       const note = state.expenses[index]?.note || "";
@@ -917,7 +942,13 @@ document.addEventListener("click", event => {
     }
     if (btn.dataset.action === "edit") openExpenseModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer cet achat ?")) {
-      deleteExpenseRow(index).catch(console.error);
+      if (isDone(state.expenses[index])) {
+        state.expenses[index].status = setStatusFlag(state.expenses[index].status || "", "archived", true);
+        render();
+        if (cloudReady) saveExpenseRow(index).catch(console.error);
+      } else {
+        deleteExpenseRow(index).catch(console.error);
+      }
     }
   }
   if (btn.dataset.type === "saving") {
@@ -936,7 +967,7 @@ els.exportCsv.addEventListener("click", () => {
   allSorted.forEach(e => {
     runningSpent += planAmount(e);
     const solde = savingsUntilDate(e.date) - runningSpent;
-    lines.push([formatDate(e.date), e.label, e.month, e.currency === "CHF" ? e.amount : "", e.currency === "EUR" ? e.amount : "", e.currency === "EUR" ? roundedCostCHF(e) : "", solde.toFixed(2), e.status === "todo" ? "Oui" : "", isHidden(e) ? "Oui" : ""]);
+    lines.push([formatDate(e.date), e.label, e.month, e.currency === "CHF" ? e.amount : "", e.currency === "EUR" ? e.amount : "", e.currency === "EUR" ? roundedCostCHF(e) : "", solde.toFixed(2), hasStatusFlag(e, "todo") ? "Oui" : "", isHidden(e) ? "Oui" : ""]);
   });
   const csv = lines.map(row => row.map(cell => `"${String(cell ?? "").replaceAll('"','""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
