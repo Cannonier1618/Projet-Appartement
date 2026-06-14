@@ -194,30 +194,27 @@ html.dark .card.highlight{background:linear-gradient(135deg,#1f2937,#111827)}
 }
 
 
-/* V13 — Panneau réglages sous les 4 blocs, sans colonne latérale */
+/* V14 — Panneau réglages sous les 4 blocs, stable */
 .app {
   display: block !important;
+  min-height: 100vh;
+}
+
+.content {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .sidebar {
   display: none !important;
 }
 
-.main,
-.content,
-.page,
-main {
-  width: 100% !important;
-  max-width: 1440px;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
 .settingsInline {
   margin: 24px 0 28px;
   border: 1px solid var(--line);
   border-radius: 24px;
-  background: var(--card, var(--panel));
+  background: var(--panel);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -227,7 +224,7 @@ main {
   align-items: end;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 26px 12px;
+  padding: 22px 26px 10px;
 }
 
 .settingsInlineHead h3 {
@@ -236,9 +233,10 @@ main {
   line-height: 1.15;
 }
 
-.settingsInlineHead span {
+.settingsInlineHead p {
+  margin: 6px 0 0;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .settingsInlineGrid {
@@ -248,19 +246,28 @@ main {
   padding: 18px 26px 26px;
 }
 
-.settingsInlineGrid .panel,
-.settingsInlineGrid .settingCard,
-.settingsInlineGrid .sideCard,
-.settingsInlineGrid > div {
-  min-width: 0;
+.settingsInline .sideBox,
+.settingsInline .themeBox {
+  margin: 0;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
-.settingsInlineGrid input,
-.settingsInlineGrid select {
-  width: 100%;
+.settingsInline .sideHead span,
+.settingsInline small,
+.settingsInline .themeBox span {
+  color: var(--muted);
 }
 
-.settingsInlineGrid .lineCount {
+.settingsInline input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.settingsInline .sidebarFooter {
   display: none !important;
 }
 
@@ -271,10 +278,7 @@ main {
 }
 
 @media (max-width: 720px) {
-  .main,
-  .content,
-  .page,
-  main {
+  .content {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
@@ -291,7 +295,6 @@ main {
 
   .settingsInlineHead h3 {
     font-size: 22px;
-    margin-bottom: 6px;
   }
 
   .settingsInlineGrid {
