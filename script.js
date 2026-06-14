@@ -489,6 +489,30 @@ function cleanUrl(value){
   return "https://" + url;
 }
 
+
+function monthLabelFromDate(value){
+  if (!value) return "";
+  const d = new Date(value + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return "";
+  const months = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+  ];
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function syncModalMonthFromDate(){
+  if (!els.modalDate || !els.modalMonth) return;
+  const month = normalizeMonth(monthLabelFromDate(els.modalDate.value));
+  if (!month) return;
+
+  const options = Array.from(els.modalMonth.options || []);
+  const found = options.find(opt => normalizeMonth(opt.value) === month || normalizeMonth(opt.textContent) === month);
+  if (found) {
+    els.modalMonth.value = found.value;
+  }
+}
+
 function normalizeMonth(value){
   return String(value || "").trim().toLowerCase();
 }
@@ -717,12 +741,14 @@ function openExpenseModal(index = null){
   els.modalCurrency.value = e.currency || "CHF";
   refreshSelects();
   els.modalMonth.value = normalizeMonth(e.month || state.savings[0]?.month || "");
+  if (index === null) syncModalMonthFromDate();
   els.modalStatus.checked = e.status === "todo";
   updateEuroDetails();
   els.expenseDialog.showModal();
 }
 
 function saveExpenseModal(){
+  syncModalMonthFromDate();
   const item = {
     date: els.modalDate.value,
     label: els.modalLabel.value.trim(),
@@ -811,6 +837,8 @@ function saveSavingModal(){
 });
 [els.search, els.monthFilter, els.currencyFilter, els.sortBy].forEach(el => el.addEventListener("input", render));
 [els.modalAmount, els.modalCurrency].forEach(el => el.addEventListener("input", updateEuroDetails));
+els.modalDate.addEventListener("input", syncModalMonthFromDate);
+els.modalDate.addEventListener("change", syncModalMonthFromDate);
 els.addExpense.addEventListener("click", () => openExpenseModal());
 els.saveExpense.addEventListener("click", saveExpenseModal);
 els.addSaving.addEventListener("click", () => openSavingModal());
