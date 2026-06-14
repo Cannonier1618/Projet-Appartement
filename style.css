@@ -169,3 +169,25 @@ html.dark .card.highlight{background:linear-gradient(135deg,#1f2937,#111827)}
 .linkBtn:hover {
   opacity: 1;
 }
+
+
+/* V11 — notes codes de réduction */
+.modal textarea {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 13px;
+  outline: none;
+  resize: vertical;
+  min-height: 86px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.noteBtn {
+  font-size: 14px;
+  opacity: 0.78;
+}
+
+.noteBtn:hover {
+  opacity: 1;
+}

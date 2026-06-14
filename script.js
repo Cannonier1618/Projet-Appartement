@@ -206,6 +206,7 @@ const els = {
   modalLabel: document.querySelector("#modalLabel"),
   modalAmount: document.querySelector("#modalAmount"),
   modalUrl: document.querySelector("#modalUrl"),
+  modalNote: document.querySelector("#modalNote"),
   modalCurrency: document.querySelector("#modalCurrency"),
   modalMonth: document.querySelector("#modalMonth"),
   modalStatus: document.querySelector("#modalStatus"),
@@ -277,7 +278,8 @@ function migrateState(data){
     status: e.status === "todo" ? "todo" : "",
     hidden: Boolean(e.hidden),
     position: Number(e.position ?? i),
-    url: cleanUrl(e.url || e.link || "")
+    url: cleanUrl(e.url || e.link || ""),
+    note: e.note || e.notes || e.comment || e.commentaire || 
   }));
   return data;
 }
@@ -316,7 +318,8 @@ async function loadCloud(){
         planned: row.planned,
         note: row.note,
         position: row.position,
-        url: row.url || ""
+        url: row.url || "",
+        note: row.note || ""
       })),
       expenses: expenses.map(row => ({
         id: row.id,
@@ -328,7 +331,8 @@ async function loadCloud(){
         status: row.status,
         hidden: Boolean(row.hidden),
         position: row.position,
-        url: row.url || ""
+        url: row.url || "",
+        note: row.note || ""
       }))
     });
     render();
@@ -350,6 +354,7 @@ function expensePayload(e, index){
     status: e.status || null,
     hidden: Boolean(e.hidden),
     url: e.url || null,
+    note: e.note || null,
     position: index
   };
 }
@@ -688,6 +693,7 @@ function renderExpenses(){
       <td data-label="Solde" class="${(runningByIndex.get(e.index) || 0) < 0 ? "negative" : "positive"}"><span class="readCell">${money(runningByIndex.get(e.index) || 0)}</span></td>
       <td><div class="rowActions">
         <button class="iconBtn hideBtn ${isHidden(e) ? "active" : ""}" data-type="expense" data-action="toggleHidden" data-index="${e.index}" title="${isHidden(e) ? "Réintégrer dans les calculs" : "Masquer des calculs"}">${isHidden(e) ? "◉" : "○"}</button>
+        ${e.note ? `<button class="iconBtn noteBtn" data-type="expense" data-action="showNote" data-index="${e.index}" title="Voir la note">✦</button>` : ""}
         ${e.url ? `<button class="iconBtn linkBtn" data-type="expense" data-action="openUrl" data-index="${e.index}" title="Ouvrir le lien">↗</button>` : ""}
         <button class="iconBtn" data-type="expense" data-action="edit" data-index="${e.index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="expense" data-action="delete" data-index="${e.index}" title="Supprimer">×</button>
@@ -707,6 +713,7 @@ function openExpenseModal(index = null){
   els.modalLabel.value = e.label || "";
   els.modalAmount.value = e.amount || "";
   if (els.modalUrl) els.modalUrl.value = e.url || "";
+  if (els.modalNote) els.modalNote.value = e.note || "";
   els.modalCurrency.value = e.currency || "CHF";
   refreshSelects();
   els.modalMonth.value = normalizeMonth(e.month || state.savings[0]?.month || "");
@@ -721,6 +728,7 @@ function saveExpenseModal(){
     label: els.modalLabel.value.trim(),
     amount: els.modalAmount.value === "" ? "" : Number(els.modalAmount.value),
     url: els.modalUrl ? cleanUrl(els.modalUrl.value) : "",
+    note: els.modalNote ? els.modalNote.value.trim() : "",
     currency: els.modalCurrency.value,
     month: normalizeMonth(els.modalMonth.value),
     status: els.modalStatus.checked ? "todo" : "",
@@ -828,6 +836,10 @@ document.addEventListener("click", event => {
     console.error("Erreur sauvegarde achat Supabase:", error);
     alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
   });
+    }
+    if (btn.dataset.action === "showNote") {
+      const note = state.expenses[index]?.note || "";
+      if (note) alert(note);
     }
     if (btn.dataset.action === "openUrl") {
       const url = state.expenses[index]?.url;
