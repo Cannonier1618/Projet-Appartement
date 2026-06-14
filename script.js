@@ -580,7 +580,11 @@ function isHidden(expense){
 
 function planAmount(expense){
   if (isHidden(expense)) return 0;
-  return Number(expense.amount || 0);
+
+  // Montant réellement déduit des soldes :
+  // - CHF : montant CHF saisi
+  // - EUR : coût net CHF après conversion, déduction Savin' et ajout TVA CH
+  return roundedCostCHF(expense);
 }
 function totals(){
   const savingTotal = state.savings.reduce((sum, s) => sum + Number(s.planned || 0), 0);
@@ -656,9 +660,8 @@ function renderTimeline(){
 
     const monthKey = normalizeMonth(s.month);
 
-    // Identique au Google Sheet :
-    // dépenses du mois = somme brute des montants de ce mois.
-    // dépenses cumulées = somme des dépenses brutes depuis le début.
+    // Dépenses du mois = montant réellement déduit du solde.
+    // Pour les EUR : conversion CHF - Savin' + TVA CH.
     const monthExpenses = state.expenses
       .filter(e => normalizeMonth(e.month) === monthKey)
       .reduce((sum, e) => sum + planAmount(e), 0);
