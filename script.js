@@ -315,7 +315,8 @@ async function loadCloud(){
         date: row.date,
         planned: row.planned,
         note: row.note,
-        position: row.position
+        position: row.position,
+        url: row.url || ""
       })),
       expenses: expenses.map(row => ({
         id: row.id,
@@ -326,7 +327,8 @@ async function loadCloud(){
         month: row.month,
         status: row.status,
         hidden: Boolean(row.hidden),
-        position: row.position
+        position: row.position,
+        url: row.url || ""
       }))
     });
     render();
@@ -347,6 +349,7 @@ function expensePayload(e, index){
     month: normalizeMonth(e.month || ""),
     status: e.status || null,
     hidden: Boolean(e.hidden),
+    url: e.url || null,
     position: index
   };
 }
@@ -736,7 +739,10 @@ function saveExpenseModal(){
   }
 
   render();
-  if (cloudReady) saveExpenseRow(index).catch(console.error);
+  if (cloudReady) saveExpenseRow(index).catch(error => {
+    console.error("Erreur sauvegarde achat Supabase:", error);
+    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+  });
 }
 
 function updateEuroDetails(){
@@ -810,12 +816,18 @@ document.addEventListener("click", event => {
     if (btn.dataset.action === "status") {
       state.expenses[index].status = state.expenses[index].status === "todo" ? "" : "todo";
       render();
-      if (cloudReady) saveExpenseRow(index).catch(console.error);
+      if (cloudReady) saveExpenseRow(index).catch(error => {
+    console.error("Erreur sauvegarde achat Supabase:", error);
+    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+  });
     }
     if (btn.dataset.action === "toggleHidden") {
       state.expenses[index].hidden = !Boolean(state.expenses[index].hidden);
       render();
-      if (cloudReady) saveExpenseRow(index).catch(console.error);
+      if (cloudReady) saveExpenseRow(index).catch(error => {
+    console.error("Erreur sauvegarde achat Supabase:", error);
+    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+  });
     }
     if (btn.dataset.action === "openUrl") {
       const url = state.expenses[index]?.url;
