@@ -192,3 +192,110 @@ html.dark .card.highlight{background:linear-gradient(135deg,#1f2937,#111827)}
 .noteBtn:hover {
   opacity: 1;
 }
+
+
+/* V13 — Panneau réglages sous les 4 blocs, sans colonne latérale */
+.app {
+  display: block !important;
+}
+
+.sidebar {
+  display: none !important;
+}
+
+.main,
+.content,
+.page,
+main {
+  width: 100% !important;
+  max-width: 1440px;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.settingsInline {
+  margin: 24px 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--card, var(--panel));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.settingsInlineHead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 26px 12px;
+}
+
+.settingsInlineHead h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.settingsInlineHead span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.settingsInlineGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 18px 26px 26px;
+}
+
+.settingsInlineGrid .panel,
+.settingsInlineGrid .settingCard,
+.settingsInlineGrid .sideCard,
+.settingsInlineGrid > div {
+  min-width: 0;
+}
+
+.settingsInlineGrid input,
+.settingsInlineGrid select {
+  width: 100%;
+}
+
+.settingsInlineGrid .lineCount {
+  display: none !important;
+}
+
+@media (max-width: 1100px) {
+  .settingsInlineGrid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .main,
+  .content,
+  .page,
+  main {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .settingsInline {
+    border-radius: 22px;
+    margin-top: 18px;
+  }
+
+  .settingsInlineHead {
+    display: block;
+    padding: 20px 20px 8px;
+  }
+
+  .settingsInlineHead h3 {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .settingsInlineGrid {
+    grid-template-columns: 1fr;
+    padding: 14px 20px 22px;
+  }
+}
