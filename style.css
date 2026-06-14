@@ -523,3 +523,26 @@ table td {
   background: rgba(34, 197, 94, 0.17) !important;
   color: #22c55e !important;
 }
+
+
+/* V24 KPI SAVIN TVA */
+.frontierKpis{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(180px,1fr));
+  gap:12px;
+  margin:12px 0 18px;
+}
+.miniKpi{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:12px;
+}
+.miniTitle{
+  font-size:.85rem;
+  opacity:.8;
+}
+.miniValue{
+  margin-top:6px;
+  font-size:1.2rem;
+  font-weight:700;
+}

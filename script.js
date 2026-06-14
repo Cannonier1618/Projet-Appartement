@@ -1,3 +1,26 @@
+
+function euroStats(){
+  let savin = 0;
+  let vat = 0;
+
+  state.expenses.forEach(e => {
+    if ((e.currency || "CHF") !== "EUR") return;
+    if (isHidden && isHidden(e)) return;
+
+    const amount = Number(e.amount || 0);
+    const details = euroDetails(amount);
+
+    savin += Number(details.savin || 0);
+    vat += Number(details.vat || 0);
+  });
+
+  return {
+    savin,
+    vat,
+    gain: savin - vat
+  };
+}
+
 const INITIAL_DATA = {
   "rate": 0.9192,
   "savinRate": 14.5,
@@ -707,6 +730,37 @@ function render(){
   els.progressFill.style.width = percent + "%";
   const itemCount = state.expenses.filter(e => e.label || e.amount || e.date).length;
   els.itemCount.textContent = itemCount + (itemCount > 1 ? " achats" : " achat");
+
+  
+  let kpiHost = document.getElementById("frontierKpis");
+  if (!kpiHost) {
+    kpiHost = document.createElement("div");
+    kpiHost.id = "frontierKpis";
+    kpiHost.className = "frontierKpis";
+
+    const anchor = document.querySelector(".settingsCard, .settings, #settings");
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(kpiHost, anchor);
+    } else {
+      document.body.appendChild(kpiHost);
+    }
+  }
+
+  const stats = euroStats();
+  kpiHost.innerHTML = `
+    <div class="miniKpi">
+      <div class="miniTitle">💰 SAVIN' attendu</div>
+      <div class="miniValue">${money(stats.savin)}</div>
+    </div>
+    <div class="miniKpi">
+      <div class="miniTitle">🇨🇭 TVA suisse estimée</div>
+      <div class="miniValue">${money(stats.vat)}</div>
+    </div>
+    <div class="miniKpi">
+      <div class="miniTitle">📈 Gain net frontalier</div>
+      <div class="miniValue ${stats.gain >= 0 ? "positive" : "negative"}">${money(stats.gain)}</div>
+    </div>
+  `;
 
   renderTimeline();
   renderExpenses();
