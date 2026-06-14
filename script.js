@@ -164,7 +164,7 @@ const INITIAL_DATA = {
   ]
 };
 
-// V4 Supabase Sync — Projet Appartement
+// V8 stable Supabase Sync — Projet Appartement
 // Même projet Supabase que Mes Comptes. Clé publique uniquement.
 const SUPABASE_URL = "https://fbefapylkbzvbncowjmf.supabase.co/rest/v1";
 const SUPABASE_KEY = "sb_publishable_a8tU5B_VVCpOOdX6ekyTdA_WcK72wxi";
@@ -282,12 +282,10 @@ function migrateState(data){
 
 function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (cloudReady && !isHydrating) scheduleCloudSave();
 }
 
 function scheduleCloudSave(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => saveCloud().catch(console.error), 500);
+  // V8 stable: no automatic bulk-save. Each action writes only the touched row.
 }
 
 async function loadCloud(){
@@ -338,57 +336,139 @@ async function loadCloud(){
   }
 }
 
-async function saveCloud(){
-  const current = migrateState(state);
+function expensePayload(e, index){
+  return {
+    date: e.date || null,
+    label: e.label || "",
+    amount: e.amount === "" ? null : Number(e.amount || 0),
+    currency: e.currency || "CHF",
+    month: normalizeMonth(e.month || ""),
+    status: e.status || null,
+    hidden: Boolean(e.hidden),
+    position: index
+  };
+}
 
+function savingPayload(s, index){
+  return {
+    month: normalizeMonth(s.month || ""),
+    date: s.date || null,
+    planned: s.planned === "" ? null : Number(s.planned || 0),
+    note: s.note || null,
+    position: index
+  };
+}
+
+async function saveSettingsCloud(){
   await supa("/apartment_settings?on_conflict=id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([{
       id: 1,
-      rate: current.rate,
-      savin_rate: current.savinRate,
-      vat_rate: current.vatRate
+      rate: Number(state.rate || 0),
+      savin_rate: Number(state.savinRate || 0),
+      vat_rate: Number(state.vatRate || 0)
     }])
   });
+}
 
-  await supa("/apartment_savings?id=not.is.null", {
-    method: "DELETE",
-    headers: { Prefer: "return=minimal" }
-  });
-  if (current.savings.length) {
-    await supa("/apartment_savings", {
-      method: "POST",
+async function saveExpenseRow(index){
+  const e = state.expenses[index];
+  if (!e) return;
+  const payload = expensePayload(e, index);
+
+  if (e.id) {
+    await supa(`/apartment_expenses?id=eq.${encodeURIComponent(e.id)}`, {
+      method: "PATCH",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(current.savings.map((s, i) => ({
-        month: s.month,
-        date: s.date || null,
-        planned: s.planned === "" ? null : s.planned,
-        note: s.note || null,
-        position: i
-      })))
+      body: JSON.stringify(payload)
     });
+    return;
   }
 
-  await supa("/apartment_expenses?id=not.is.null", {
-    method: "DELETE",
-    headers: { Prefer: "return=minimal" }
+  const inserted = await supa("/apartment_expenses", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([payload])
   });
-  if (current.expenses.length) {
-    await supa("/apartment_expenses", {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(current.expenses.map((e, i) => ({
-        date: e.date || null,
-        label: e.label,
-        amount: e.amount === "" ? null : e.amount,
-        currency: e.currency,
-        month: e.month,
-        status: e.status || null,
-        hidden: Boolean(e.hidden),
-        position: i
-      })))
+
+  if (inserted && inserted[0]?.id) {
+    state.expenses[index].id = inserted[0].id;
+    saveState();
+  }
+}
+
+async function deleteExpenseRow(index){
+  const e = state.expenses[index];
+  if (!e) return;
+  const id = e.id;
+
+  state.expenses.splice(index, 1);
+  render();
+
+  if (cloudReady && id) {
+    await supa(`/apartment_expenses?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
     });
+  }
+}
+
+async function saveSavingRow(index){
+  const s = state.savings[index];
+  if (!s) return;
+  const payload = savingPayload(s, index);
+
+  if (s.id) {
+    await supa(`/apartment_savings?id=eq.${encodeURIComponent(s.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(payload)
+    });
+    return;
+  }
+
+  const inserted = await supa("/apartment_savings", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([payload])
+  });
+
+  if (inserted && inserted[0]?.id) {
+    state.savings[index].id = inserted[0].id;
+    saveState();
+  }
+}
+
+async function deleteSavingRow(index){
+  const s = state.savings[index];
+  if (!s) return;
+  const id = s.id;
+
+  state.savings.splice(index, 1);
+  render();
+
+  if (cloudReady && id) {
+    await supa(`/apartment_savings?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
+    });
+  }
+}
+
+// Initialisation uniquement : ne supprime jamais les tables.
+async function saveCloud(){
+  const current = migrateState(state);
+  await saveSettingsCloud();
+
+  for (let i = 0; i < current.savings.length; i++) {
+    state.savings[i] = current.savings[i];
+    await saveSavingRow(i);
+  }
+
+  for (let i = 0; i < current.expenses.length; i++) {
+    state.expenses[i] = current.expenses[i];
+    await saveExpenseRow(i);
   }
 }
 
@@ -628,15 +708,23 @@ function saveExpenseModal(){
     amount: els.modalAmount.value === "" ? "" : Number(els.modalAmount.value),
     currency: els.modalCurrency.value,
     month: normalizeMonth(els.modalMonth.value),
-    status: els.modalStatus.checked ? "todo" : ""
+    status: els.modalStatus.checked ? "todo" : "",
+    hidden: false
   };
-  if (editingExpenseIndex === null) state.expenses.push(item);
-  else {
+
+  let index;
+  if (editingExpenseIndex === null) {
+    index = state.expenses.length;
+    state.expenses.push(item);
+  } else {
+    item.id = state.expenses[editingExpenseIndex]?.id ?? null;
     item.hidden = Boolean(state.expenses[editingExpenseIndex]?.hidden);
+    index = editingExpenseIndex;
     state.expenses[editingExpenseIndex] = item;
   }
+
   render();
-  if (cloudReady) saveCloud().catch(console.error);
+  if (cloudReady) saveExpenseRow(index).catch(console.error);
 }
 
 function updateEuroDetails(){
@@ -668,9 +756,19 @@ function saveSavingModal(){
     planned: els.savingAmount.value === "" ? "" : Number(els.savingAmount.value),
     note: els.savingNote.value.trim()
   };
-  if (editingSavingIndex === null) state.savings.push(item);
-  else state.savings[editingSavingIndex] = item;
+
+  let index;
+  if (editingSavingIndex === null) {
+    index = state.savings.length;
+    state.savings.push(item);
+  } else {
+    item.id = state.savings[editingSavingIndex]?.id ?? null;
+    index = editingSavingIndex;
+    state.savings[editingSavingIndex] = item;
+  }
+
   render();
+  if (cloudReady) saveSavingRow(index).catch(console.error);
 }
 
 [els.rate, els.savinRate, els.vatRate].forEach(el => {
@@ -679,6 +777,10 @@ function saveSavingModal(){
     state.savinRate = Number(els.savinRate.value || 0);
     state.vatRate = Number(els.vatRate.value || 0);
     render();
+    if (cloudReady) {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => saveSettingsCloud().catch(console.error), 500);
+    }
   });
 });
 [els.search, els.monthFilter, els.currencyFilter, els.sortBy].forEach(el => el.addEventListener("input", render));
@@ -696,25 +798,22 @@ document.addEventListener("click", event => {
     if (btn.dataset.action === "status") {
       state.expenses[index].status = state.expenses[index].status === "todo" ? "" : "todo";
       render();
-      if (cloudReady) saveCloud().catch(console.error);
+      if (cloudReady) saveExpenseRow(index).catch(console.error);
     }
     if (btn.dataset.action === "toggleHidden") {
       state.expenses[index].hidden = !Boolean(state.expenses[index].hidden);
       render();
-      if (cloudReady) saveCloud().catch(console.error);
+      if (cloudReady) saveExpenseRow(index).catch(console.error);
     }
     if (btn.dataset.action === "edit") openExpenseModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer cet achat ?")) {
-      state.expenses.splice(index, 1);
-      render();
-      if (cloudReady) saveCloud().catch(console.error);
+      deleteExpenseRow(index).catch(console.error);
     }
   }
   if (btn.dataset.type === "saving") {
     if (btn.dataset.action === "edit") openSavingModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer ce mois ?")) {
-      state.savings.splice(index, 1);
-      render();
+      deleteSavingRow(index).catch(console.error);
     }
   }
 });
@@ -755,6 +854,5 @@ window.addEventListener("focus", () => loadCloud());
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) loadCloud();
 });
-setInterval(() => {
-  if (!document.hidden) loadCloud();
-}, 15000);
+// V8 stable: pas de rafraîchissement automatique toutes les 15 secondes.
+
