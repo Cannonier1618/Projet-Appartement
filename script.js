@@ -319,7 +319,8 @@ async function loadCloud(){
         note: row.note,
         position: row.position,
         url: row.url || "",
-        note: row.note || ""
+        note: row.note || "",
+        done: Boolean(row.done)
       })),
       expenses: expenses.map(row => ({
         id: row.id,
@@ -332,7 +333,8 @@ async function loadCloud(){
         hidden: Boolean(row.hidden),
         position: row.position,
         url: row.url || "",
-        note: row.note || ""
+        note: row.note || "",
+        done: Boolean(row.done)
       }))
     });
     render();
@@ -355,6 +357,7 @@ function expensePayload(e, index){
     hidden: Boolean(e.hidden),
     url: e.url || null,
     note: e.note || null,
+    done: isDone(e),
     position: index
   };
 }
@@ -600,8 +603,14 @@ function isHidden(expense){
   return Boolean(expense.hidden);
 }
 
+function isDone(expense){
+  const status = String(expense?.status || "");
+  return Boolean(expense?.done) || status.split("|").includes("done");
+}
+
+
 function planAmount(expense){
-  if (isHidden(expense)) return 0;
+  if (isHidden(expense) || isDone(expense)) return 0;
 
   // Montant réellement déduit des soldes :
   // - CHF : montant CHF saisi
@@ -744,6 +753,7 @@ function renderExpenses(){
         <button class="iconBtn hideBtn ${isHidden(e) ? "active" : ""}" data-type="expense" data-action="toggleHidden" data-index="${e.index}" title="${isHidden(e) ? "Réintégrer dans les calculs" : "Masquer des calculs"}">${isHidden(e) ? "◉" : "○"}</button>
         ${e.note ? `<button class="iconBtn noteBtn" data-type="expense" data-action="showNote" data-index="${e.index}" title="Voir la note">✦</button>` : ""}
         ${e.url ? `<button class="iconBtn linkBtn" data-type="expense" data-action="openUrl" data-index="${e.index}" title="Ouvrir le lien">↗</button>` : ""}
+        ${`<button class="iconBtn doneBtn ${isDone(e) ? "active" : ""}" data-type="expense" data-action="toggleDone" data-index="${e.index}" title="${isDone(e) ? "Remettre en simulation" : "Marquer comme achat réalisé"}">${isDone(e) ? "✓" : "○"}</button>`}
         <button class="iconBtn" data-type="expense" data-action="edit" data-index="${e.index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="expense" data-action="delete" data-index="${e.index}" title="Supprimer">×</button>
       </div></td>`;
@@ -889,6 +899,13 @@ document.addEventListener("click", event => {
     console.error("Erreur sauvegarde achat Supabase:", error);
     alert("La sauvegarde Supabase a échoué. Vérifie les colonnes url et note dans apartment_expenses.");
   });
+    }
+    if (btn.dataset.action === "toggleDone") {
+      state.expenses[index] = normalizeExpense(state.expenses[index]);
+      const current = isDone(state.expenses[index]);
+      state.expenses[index].status = setStatusFlag(state.expenses[index].status || "", "done", !current);
+      saveState();
+      render();
     }
     if (btn.dataset.action === "showNote") {
       const note = state.expenses[index]?.note || "";
