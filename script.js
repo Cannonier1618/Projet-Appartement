@@ -274,6 +274,7 @@ function migrateState(data){
     currency: e.currency === "EUR" || e.currency === "€" ? "EUR" : "CHF",
     month: normalizeMonth(e.month || ""),
     status: e.status === "todo" ? "todo" : "",
+    hidden: Boolean(e.hidden),
     position: Number(e.position ?? i)
   }));
   return data;
@@ -324,6 +325,7 @@ async function loadCloud(){
         currency: row.currency,
         month: row.month,
         status: row.status,
+        hidden: Boolean(row.hidden),
         position: row.position
       }))
     });
@@ -383,6 +385,7 @@ async function saveCloud(){
         currency: e.currency,
         month: e.month,
         status: e.status || null,
+        hidden: Boolean(e.hidden),
         position: i
       })))
     });
@@ -450,7 +453,12 @@ function roundedCostCHF(expense){
 
 // Montant utilisé par le Plan épargne du Google Sheet.
 // Le plan additionne les montants saisis bruts : CHF en CHF, EUR en valeur EUR brute.
+function isHidden(expense){
+  return Boolean(expense.hidden);
+}
+
 function planAmount(expense){
+  if (isHidden(expense)) return 0;
   return Number(expense.amount || 0);
 }
 function totals(){
@@ -572,6 +580,7 @@ function renderExpenses(){
     const active = e.status === "todo";
     const convertedDisplay = e.currency === "EUR" && cost ? smartCHF(cost) : "";
     const tr = document.createElement("tr");
+    if (isHidden(e)) tr.classList.add("hiddenExpense");
     tr.innerHTML = `
       <td class="statusCell">
         <button class="cornerMarker ${active ? "active" : ""}" data-type="expense" data-action="status" data-index="${e.index}" title="À définir" aria-label="À définir">
@@ -586,6 +595,7 @@ function renderExpenses(){
       <td data-label="Coût net" class="${e.currency === "EUR" && cost ? "" : "emptyMobile"}"><span class="readCell">${convertedDisplay}</span></td>
       <td data-label="Solde" class="${(runningByIndex.get(e.index) || 0) < 0 ? "negative" : "positive"}"><span class="readCell">${money(runningByIndex.get(e.index) || 0)}</span></td>
       <td><div class="rowActions">
+        <button class="iconBtn hideBtn ${isHidden(e) ? "active" : ""}" data-type="expense" data-action="toggleHidden" data-index="${e.index}" title="${isHidden(e) ? "Réintégrer dans les calculs" : "Masquer des calculs"}">${isHidden(e) ? "◉" : "○"}</button>
         <button class="iconBtn" data-type="expense" data-action="edit" data-index="${e.index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="expense" data-action="delete" data-index="${e.index}" title="Supprimer">×</button>
       </div></td>`;
@@ -621,8 +631,12 @@ function saveExpenseModal(){
     status: els.modalStatus.checked ? "todo" : ""
   };
   if (editingExpenseIndex === null) state.expenses.push(item);
-  else state.expenses[editingExpenseIndex] = item;
+  else {
+    item.hidden = Boolean(state.expenses[editingExpenseIndex]?.hidden);
+    state.expenses[editingExpenseIndex] = item;
+  }
   render();
+  if (cloudReady) saveCloud().catch(console.error);
 }
 
 function updateEuroDetails(){
@@ -682,11 +696,18 @@ document.addEventListener("click", event => {
     if (btn.dataset.action === "status") {
       state.expenses[index].status = state.expenses[index].status === "todo" ? "" : "todo";
       render();
+      if (cloudReady) saveCloud().catch(console.error);
+    }
+    if (btn.dataset.action === "toggleHidden") {
+      state.expenses[index].hidden = !Boolean(state.expenses[index].hidden);
+      render();
+      if (cloudReady) saveCloud().catch(console.error);
     }
     if (btn.dataset.action === "edit") openExpenseModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer cet achat ?")) {
       state.expenses.splice(index, 1);
       render();
+      if (cloudReady) saveCloud().catch(console.error);
     }
   }
   if (btn.dataset.type === "saving") {
@@ -699,14 +720,14 @@ document.addEventListener("click", event => {
 });
 
 els.exportCsv.addEventListener("click", () => {
-  const header = ["Date","Description","Mois","CHF","EUR","Coût net CHF","Solde après achat","À définir"];
+  const header = ["Date","Description","Mois","CHF","EUR","Coût net CHF","Solde après achat","À définir","Masqué"];
   let runningSpent = 0;
   const allSorted = state.expenses.map((e, index) => ({...e, index})).sort((a,b) => dateValue(a.date) - dateValue(b.date));
   const lines = [header];
   allSorted.forEach(e => {
     runningSpent += planAmount(e);
     const solde = savingsUntilDate(e.date) - runningSpent;
-    lines.push([formatDate(e.date), e.label, e.month, e.currency === "CHF" ? e.amount : "", e.currency === "EUR" ? e.amount : "", e.currency === "EUR" ? roundedCostCHF(e) : "", solde.toFixed(2), e.status === "todo" ? "Oui" : ""]);
+    lines.push([formatDate(e.date), e.label, e.month, e.currency === "CHF" ? e.amount : "", e.currency === "EUR" ? e.amount : "", e.currency === "EUR" ? roundedCostCHF(e) : "", solde.toFixed(2), e.status === "todo" ? "Oui" : "", isHidden(e) ? "Oui" : ""]);
   });
   const csv = lines.map(row => row.map(cell => `"${String(cell ?? "").replaceAll('"','""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});

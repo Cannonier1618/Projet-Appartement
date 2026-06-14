@@ -137,3 +137,25 @@ html.dark .card.highlight{background:linear-gradient(135deg,#1f2937,#111827)}
   .tableWrap{overflow-x:scroll!important;overflow-y:visible!important;-webkit-overflow-scrolling:touch;padding-bottom:12px}
   .tableWrap table{min-width:1050px!important;width:1050px!important}
 }
+
+
+/* V7 — masquer une ligne sans la supprimer */
+.hiddenExpense {
+  opacity: 0.42;
+}
+
+.hiddenExpense td,
+.hiddenExpense .readCell {
+  color: var(--muted) !important;
+}
+
+.hideBtn {
+  font-size: 14px;
+  opacity: 0.65;
+}
+
+.hideBtn.active {
+  opacity: 1;
+  background: rgba(249, 115, 22, 0.16) !important;
+  color: #f97316 !important;
+}
