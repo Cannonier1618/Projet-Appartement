@@ -279,7 +279,7 @@ function migrateState(data){
     hidden: Boolean(e.hidden),
     position: Number(e.position ?? i),
     url: cleanUrl(e.url || e.link || ""),
-    note: e.note || e.notes || e.comment || e.commentaire || 
+    note: e.note || e.notes || e.comment || e.commentaire || ""
   }));
   return data;
 }
@@ -749,7 +749,7 @@ function saveExpenseModal(){
   render();
   if (cloudReady) saveExpenseRow(index).catch(error => {
     console.error("Erreur sauvegarde achat Supabase:", error);
-    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+    alert("La sauvegarde Supabase a échoué. Vérifie les colonnes url et note dans apartment_expenses.");
   });
 }
 
@@ -826,7 +826,7 @@ document.addEventListener("click", event => {
       render();
       if (cloudReady) saveExpenseRow(index).catch(error => {
     console.error("Erreur sauvegarde achat Supabase:", error);
-    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+    alert("La sauvegarde Supabase a échoué. Vérifie les colonnes url et note dans apartment_expenses.");
   });
     }
     if (btn.dataset.action === "toggleHidden") {
@@ -834,7 +834,7 @@ document.addEventListener("click", event => {
       render();
       if (cloudReady) saveExpenseRow(index).catch(error => {
     console.error("Erreur sauvegarde achat Supabase:", error);
-    alert("La sauvegarde Supabase a échoué. Vérifie la colonne url dans apartment_expenses.");
+    alert("La sauvegarde Supabase a échoué. Vérifie les colonnes url et note dans apartment_expenses.");
   });
     }
     if (btn.dataset.action === "showNote") {
