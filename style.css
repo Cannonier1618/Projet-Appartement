@@ -510,3 +510,16 @@ table td {
   background: rgba(34, 197, 94, 0.17) !important;
   color: #22c55e !important;
 }
+
+
+/* V22 — mois réalisé sans masquer */
+.monthCard.doneSaving {
+  opacity: 0.58;
+  background: rgba(34, 197, 94, 0.055);
+}
+
+.monthCard.doneSaving .doneBtn.active {
+  opacity: 1;
+  background: rgba(34, 197, 94, 0.17) !important;
+  color: #22c55e !important;
+}

@@ -266,6 +266,8 @@ function migrateState(data){
     date: s.date || "",
     planned: s.planned === "" || s.planned == null ? "" : Number(s.planned),
     note: s.note || "",
+    status: String(s.status || ""),
+    done: Boolean(s.done || statusParts(s.status).includes("done")),
     position: Number(s.position ?? i)
   }));
   data.expenses = (data.expenses || []).map((e, i) => ({
@@ -318,6 +320,8 @@ async function loadCloud(){
         date: row.date,
         planned: row.planned,
         note: row.note,
+        status: row.status,
+        done: Boolean(row.done),
         position: row.position,
         url: row.url || "",
         note: row.note || "",
@@ -368,7 +372,9 @@ function savingPayload(s, index){
     month: normalizeMonth(s.month || ""),
     date: s.date || null,
     planned: s.planned === "" ? null : Number(s.planned || 0),
-    note: s.note || null,
+    note: s.note || "",
+    status: s.status || null,
+    done: isSavingDone(s),
     position: index
   };
 }
@@ -620,6 +626,15 @@ function isDone(expense){
   return Boolean(expense?.done) || hasStatusFlag(expense, "done");
 }
 
+
+function isSavingDone(saving){
+  return Boolean(saving?.done) || hasStatusFlag(saving, "done");
+}
+
+function isSavingArchived(saving){
+  return hasStatusFlag(saving, "archived");
+}
+
 function isArchived(expense){
   return hasStatusFlag(expense, "archived");
 }
@@ -709,19 +724,21 @@ function renderTimeline(){
 
     const monthKey = normalizeMonth(s.month);
 
-    // Dépenses du mois = montant réellement déduit du solde.
-    // Pour les EUR : coût final réel CHF = TTC après SAVIN' + TVA QuickZoll sur valeur HT.
     const monthExpenses = state.expenses
       .filter(e => normalizeMonth(e.month) === monthKey)
       .reduce((sum, e) => sum + planAmount(e), 0);
 
     cumulativeExpenses += monthExpenses;
 
+    if (isSavingArchived(s)) return;
+
     const remaining = cumulativeSaving - cumulativeExpenses;
     const width = totalSaving ? Math.min(100, cumulativeSaving / totalSaving * 100) : 0;
 
     const div = document.createElement("article");
     div.className = "monthCard";
+    if (isSavingDone(s)) div.classList.add("doneSaving");
+
     div.innerHTML = `
       <h4>${escapeHtml(s.month)}</h4>
       <div class="row"><span>Épargne</span><strong>${smartCHF(s.planned)}</strong></div>
@@ -730,6 +747,7 @@ function renderTimeline(){
       <div class="bar"><div style="width:${width}%"></div></div>
       ${s.note ? `<div class="note">${escapeHtml(s.note)}</div>` : ""}
       <div class="monthActions">
+        <button class="iconBtn doneBtn ${isSavingDone(s) ? "active" : ""}" data-type="saving" data-action="toggleSavingDone" data-index="${index}" title="${isSavingDone(s) ? "Marquer le mois comme non réalisé" : "Mois réalisé"}">✓</button>
         <button class="iconBtn" data-type="saving" data-action="edit" data-index="${index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="saving" data-action="delete" data-index="${index}" title="Supprimer">×</button>
       </div>`;
@@ -872,6 +890,8 @@ function saveSavingModal(){
     state.savings.push(item);
   } else {
     item.id = state.savings[editingSavingIndex]?.id ?? null;
+    item.status = state.savings[editingSavingIndex]?.status || "";
+    item.done = isSavingDone(state.savings[editingSavingIndex]);
     index = editingSavingIndex;
     state.savings[editingSavingIndex] = item;
   }
@@ -952,9 +972,30 @@ document.addEventListener("click", event => {
     }
   }
   if (btn.dataset.type === "saving") {
+    if (btn.dataset.action === "toggleSavingDone") {
+      const current = isSavingDone(state.savings[index]);
+      state.savings[index].done = !current;
+      state.savings[index].status = setStatusFlag(state.savings[index].status || "", "done", !current);
+      render();
+      if (cloudReady) saveSavingRow(index).catch(console.error);
+    }
     if (btn.dataset.action === "edit") openSavingModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer ce mois ?")) {
-      deleteSavingRow(index).catch(console.error);
+      if (isSavingDone(state.savings[index])) {
+        // Mois réalisé : on l'archive seulement.
+        // Il disparaît de l'affichage, mais reste dans les calculs/historique.
+        state.savings[index].status = setStatusFlag(state.savings[index].status || "", "archived", true);
+        state.savings[index].done = true;
+        render();
+        if (cloudReady) {
+          saveSavingRow(index).catch(error => {
+            console.error("Erreur archivage mois réalisé Supabase:", error);
+            alert("Impossible d'archiver ce mois. Vérifie les colonnes status et done dans apartment_savings.");
+          });
+        }
+      } else {
+        deleteSavingRow(index).catch(console.error);
+      }
     }
   }
 });
