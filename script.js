@@ -555,16 +555,38 @@ function dateValue(value){
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 function euroDetails(amount){
-  const converted = Number(amount || 0) * Number(state.rate || 0);
-  const savin = converted * Number(state.savinRate || 0) / 100;
-  const vat = converted * Number(state.vatRate || 0) / 100;
-  const net = converted - savin + vat;
-  return {converted, savin, vat, net};
+  const eurTtc = Number(amount || 0);
+  const rate = Number(state.rate || 0);
+  const savinRate = Number(state.savinRate || 0) / 100;
+  const vatRate = Number(state.vatRate || 0) / 100;
+
+  const paidChf = eurTtc * rate;
+  const savinEur = eurTtc * savinRate;
+  const savinChf = savinEur * rate;
+  const afterSavinChf = (eurTtc - savinEur) * rate;
+
+  // QuickZoll : TVA suisse calculée sur la valeur nette hors TVA étrangère.
+  // Pour une TVA française standard de 20 %, la valeur HT = TTC / 1.20.
+  const customsNetEur = eurTtc / 1.20;
+  const customsNetChf = customsNetEur * rate;
+  const vatChf = customsNetChf * vatRate;
+
+  const net = afterSavinChf + vatChf;
+
+  return {
+    converted: paidChf,
+    savin: savinChf,
+    vat: vatChf,
+    net,
+    afterSavin: afterSavinChf,
+    customsNetEur,
+    customsNetChf
+  };
 }
 function costCHF(expense){
   const amount = Number(expense.amount || 0);
   if (!amount) return 0;
-  if (expense.currency === "EUR") return euroDetails(amount).net;
+  if ((expense.currency || "CHF") === "EUR") return euroDetails(amount).net;
   return amount;
 }
 function roundedCostCHF(expense){
@@ -583,7 +605,7 @@ function planAmount(expense){
 
   // Montant réellement déduit des soldes :
   // - CHF : montant CHF saisi
-  // - EUR : coût net CHF après conversion, déduction Savin' et ajout TVA CH
+  // - EUR : coût réel final CHF après SAVIN' + TVA QuickZoll
   return roundedCostCHF(expense);
 }
 function totals(){
@@ -661,7 +683,7 @@ function renderTimeline(){
     const monthKey = normalizeMonth(s.month);
 
     // Dépenses du mois = montant réellement déduit du solde.
-    // Pour les EUR : conversion CHF - Savin' + TVA CH.
+    // Pour les EUR : coût final réel CHF = TTC après SAVIN' + TVA QuickZoll sur valeur HT.
     const monthExpenses = state.expenses
       .filter(e => normalizeMonth(e.month) === monthKey)
       .reduce((sum, e) => sum + planAmount(e), 0);
