@@ -159,3 +159,13 @@ html.dark .card.highlight{background:linear-gradient(135deg,#1f2937,#111827)}
   background: rgba(249, 115, 22, 0.16) !important;
   color: #f97316 !important;
 }
+
+
+/* V9 — liens articles */
+.linkBtn {
+  font-size: 15px;
+  opacity: 0.75;
+}
+.linkBtn:hover {
+  opacity: 1;
+}

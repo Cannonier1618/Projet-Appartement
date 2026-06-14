@@ -205,6 +205,7 @@ const els = {
   modalDate: document.querySelector("#modalDate"),
   modalLabel: document.querySelector("#modalLabel"),
   modalAmount: document.querySelector("#modalAmount"),
+  modalUrl: document.querySelector("#modalUrl"),
   modalCurrency: document.querySelector("#modalCurrency"),
   modalMonth: document.querySelector("#modalMonth"),
   modalStatus: document.querySelector("#modalStatus"),
@@ -275,7 +276,8 @@ function migrateState(data){
     month: normalizeMonth(e.month || ""),
     status: e.status === "todo" ? "todo" : "",
     hidden: Boolean(e.hidden),
-    position: Number(e.position ?? i)
+    position: Number(e.position ?? i),
+    url: cleanUrl(e.url || e.link || "")
   }));
   return data;
 }
@@ -470,6 +472,13 @@ async function saveCloud(){
     state.expenses[i] = current.expenses[i];
     await saveExpenseRow(i);
   }
+}
+
+function cleanUrl(value){
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return "https://" + url;
 }
 
 function normalizeMonth(value){
@@ -676,6 +685,7 @@ function renderExpenses(){
       <td data-label="Solde" class="${(runningByIndex.get(e.index) || 0) < 0 ? "negative" : "positive"}"><span class="readCell">${money(runningByIndex.get(e.index) || 0)}</span></td>
       <td><div class="rowActions">
         <button class="iconBtn hideBtn ${isHidden(e) ? "active" : ""}" data-type="expense" data-action="toggleHidden" data-index="${e.index}" title="${isHidden(e) ? "Réintégrer dans les calculs" : "Masquer des calculs"}">${isHidden(e) ? "◉" : "○"}</button>
+        ${e.url ? `<button class="iconBtn linkBtn" data-type="expense" data-action="openUrl" data-index="${e.index}" title="Ouvrir le lien">↗</button>` : ""}
         <button class="iconBtn" data-type="expense" data-action="edit" data-index="${e.index}" title="Modifier">✎</button>
         <button class="iconBtn" data-type="expense" data-action="delete" data-index="${e.index}" title="Supprimer">×</button>
       </div></td>`;
@@ -693,6 +703,7 @@ function openExpenseModal(index = null){
   els.modalDate.value = e.date || "";
   els.modalLabel.value = e.label || "";
   els.modalAmount.value = e.amount || "";
+  if (els.modalUrl) els.modalUrl.value = e.url || "";
   els.modalCurrency.value = e.currency || "CHF";
   refreshSelects();
   els.modalMonth.value = normalizeMonth(e.month || state.savings[0]?.month || "");
@@ -706,6 +717,7 @@ function saveExpenseModal(){
     date: els.modalDate.value,
     label: els.modalLabel.value.trim(),
     amount: els.modalAmount.value === "" ? "" : Number(els.modalAmount.value),
+    url: els.modalUrl ? cleanUrl(els.modalUrl.value) : "",
     currency: els.modalCurrency.value,
     month: normalizeMonth(els.modalMonth.value),
     status: els.modalStatus.checked ? "todo" : "",
@@ -804,6 +816,10 @@ document.addEventListener("click", event => {
       state.expenses[index].hidden = !Boolean(state.expenses[index].hidden);
       render();
       if (cloudReady) saveExpenseRow(index).catch(console.error);
+    }
+    if (btn.dataset.action === "openUrl") {
+      const url = state.expenses[index]?.url;
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
     }
     if (btn.dataset.action === "edit") openExpenseModal(index);
     if (btn.dataset.action === "delete" && confirm("Supprimer cet achat ?")) {
